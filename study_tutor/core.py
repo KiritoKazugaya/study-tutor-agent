@@ -38,6 +38,14 @@ def _get_client() -> genai.Client:
     return _client
 
 
+# Gemini 2.5 Flash "thinks" by default, adding ~15-20s per call. Summaries and
+# quizzes don't need it — disabling makes every request ~3-5x faster.
+try:
+    _NO_THINKING = types.ThinkingConfig(thinking_budget=0)
+except Exception:  # older SDK / model without thinking support
+    _NO_THINKING = None
+
+
 def generate(prompt: str, system: str | None = None, temperature: float = 0.7) -> str:
     """Single entry point for every LLM call in the app.
 
@@ -47,6 +55,7 @@ def generate(prompt: str, system: str | None = None, temperature: float = 0.7) -
     cfg = types.GenerateContentConfig(
         temperature=temperature,
         system_instruction=system,
+        thinking_config=_NO_THINKING,
     )
     for attempt in range(2):
         try:

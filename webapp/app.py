@@ -55,7 +55,10 @@ ALLOWED = {".txt", ".md", ".pdf"}
 # so later clicks are served instantly from cache.                            #
 # --------------------------------------------------------------------------- #
 QUIZ_KINDS = ("mcq", "short", "interview", "coding")
-POOL_TARGET = 8          # questions to keep ready per kind
+# Only warm the two most common quiz types up front, to conserve API quota.
+# Interview/coding generate on demand (still fast) and get cached after first use.
+PREWARM_KINDS = ("mcq", "short")
+POOL_TARGET = 6          # questions to keep ready per kind
 _prewarming: set[str] = set()
 _prewarm_lock = threading.Lock()
 
@@ -73,7 +76,7 @@ def _prewarm(subject: str) -> None:
                 cachelib.save(subject, c)
             except Exception:
                 pass
-        for kind in QUIZ_KINDS:
+        for kind in PREWARM_KINDS:
             have = len(c["pool"].get(kind, []))
             if have < POOL_TARGET:
                 try:

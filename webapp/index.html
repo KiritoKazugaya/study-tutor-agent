@@ -117,6 +117,7 @@
 <header>
   <span class="logo">📚</span>
   <div><h1>Study Tutor</h1><p>Multi-agent study assistant · summarize · quiz · grade · remember</p></div>
+  <button id="showIntro" class="btn ghost mini" style="margin-left:auto;display:none" onclick="showHero()">▲ Intro</button>
 </header>
 
 <section class="hero">
@@ -197,7 +198,15 @@ function startApp(){
   const hero=document.querySelector('.hero');
   if(!hero)return;
   hero.classList.add('collapsed');
-  setTimeout(()=>{hero.style.display='none';window.scrollTo({top:0,behavior:'smooth'});},450);
+  setTimeout(()=>{hero.style.display='none';$('#showIntro').style.display='inline-block';window.scrollTo({top:0,behavior:'smooth'});},450);
+}
+function showHero(){
+  const hero=document.querySelector('.hero');
+  if(!hero)return;
+  hero.style.display='';
+  requestAnimationFrame(()=>hero.classList.remove('collapsed'));
+  $('#showIntro').style.display='none';
+  window.scrollTo({top:0,behavior:'smooth'});
 }
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2400);}
 async function api(url,opts){const r=await fetch(url,opts);if(!r.ok){const e=await r.json().catch(()=>({error:r.statusText}));throw new Error(e.error||'request failed');}return r.json();}
@@ -249,7 +258,13 @@ async function loadSubjects(){
     const d=document.createElement('div');
     d.className='subject'+(s.name===current?' active':'');
     d.innerHTML=`<span>📁 ${escapeHtml(s.name)}</span><span class="cnt">${s.docs.length} docs</span>`;
-    d.onclick=()=>{current=s.name;$('#active').textContent=s.name;refreshReady();loadSubjects();};
+    d.onclick=()=>{
+      current=s.name;$('#active').textContent=s.name;
+      if(s.docs&&s.docs.length){   // warm the cache for whatever is selected
+        fetch('/api/prewarm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subject:s.name})}).catch(()=>{});
+      }
+      refreshReady();loadSubjects();
+    };
     box.appendChild(d);
   });
 }
