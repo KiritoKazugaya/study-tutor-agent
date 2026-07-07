@@ -285,12 +285,14 @@ def api_path():
     data = request.json or {}
     topic = data.get("topic", "").strip()
     with_resources = bool(data.get("resources", False))
+    duration = (data.get("duration") or "flexible").strip()
+    depth = (data.get("depth") or "deep_practice").strip()
     if not topic:
         return jsonify({"error": "topic required"}), 400
 
     @stream_with_context
     def gen():
-        yield from pathfinder.create_stream(topic, with_resources)
+        yield from pathfinder.create_stream(topic, with_resources, duration, depth)
 
     return Response(gen(), mimetype="text/plain; charset=utf-8")
 

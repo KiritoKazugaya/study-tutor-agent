@@ -526,9 +526,33 @@ async function deleteSubject(name){
 let lastPath={topic:'',md:''};
 function pathPanel(){
   out.innerHTML=`<h2>🧭 Learning Path Creator</h2>
-    <p class="muted">Enter any topic — get a structured path from basics to advanced. No subject needed.</p>
+    <p class="muted">Enter a topic and your constraints — get a scheduled path from basics to advanced. No subject needed.</p>
     <div class="askbar"><input id="pathTopic" type="text" autocomplete="off" placeholder="e.g. Machine Learning, React, Guitar, Data Structures…" style="flex:1" onkeydown="if(event.key==='Enter')createPath(true)"></div>
-    <div class="row" style="margin-top:10px">
+    <div class="toolbar" style="margin-top:12px">
+      <div class="field"><label>Time to learn</label>
+        <select id="pathDuration">
+          <option value="1 week">1 week</option>
+          <option value="2 weeks">2 weeks</option>
+          <option value="1 month" selected>1 month</option>
+          <option value="3 months">3 months</option>
+          <option value="6 months">6 months</option>
+          <option value="flexible">Flexible / no deadline</option>
+        </select>
+      </div>
+      <div class="field"><label>Exact days (optional)</label>
+        <input id="pathDays" type="number" min="1" max="365" placeholder="e.g. 13" style="width:120px" autocomplete="off">
+      </div>
+      <div class="field"><label>Depth / type</label>
+        <select id="pathDepth">
+          <option value="theory">Theory only</option>
+          <option value="deep">Deep dive (thorough theory)</option>
+          <option value="deep_practice" selected>Deep dive + practice</option>
+          <option value="projects">Project-based</option>
+          <option value="interview">Interview / job-ready</option>
+        </select>
+      </div>
+    </div>
+    <div class="row" style="margin-top:12px">
       <button class="btn" onclick="createPath(true)">🌐 With online resources</button>
       <button class="btn ghost" onclick="createPath(false)">📋 Concept path only</button>
     </div>
@@ -537,10 +561,13 @@ function pathPanel(){
 }
 async function createPath(withResources){
   const topic=($('#pathTopic').value||'').trim(); if(!topic){toast('Enter a topic first');return;}
+  const days=($('#pathDays').value||'').trim();
+  const duration = days ? (days+' days') : $('#pathDuration').value;
+  const depth = $('#pathDepth').value;
   const box=$('#pathOut');
-  box.innerHTML=`<div class="q"><div class="md" id="pathBox"><span class="spinner"></span> designing your path…</div></div>`;
+  box.innerHTML=`<div class="q"><div class="md" id="pathBox"><span class="spinner"></span> designing your ${escapeHtml(duration)} plan…</div></div>`;
   try{
-    const res=await fetch('/api/path',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic,resources:withResources})});
+    const res=await fetch('/api/path',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic,resources:withResources,duration,depth})});
     if(!res.ok||!res.body)throw new Error('request failed');
     const reader=res.body.getReader(),dec=new TextDecoder();let acc='';const pb=$('#pathBox');
     while(true){const {done,value}=await reader.read();if(done)break;acc+=dec.decode(value,{stream:true});pb.innerHTML=mdToHtml(acc);}

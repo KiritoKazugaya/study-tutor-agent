@@ -181,29 +181,46 @@ class PathAgent:
     persona = ("You are an expert curriculum designer. You build clear, motivating "
                "learning paths that take a beginner all the way to job/exam-ready.")
 
-    def _prompt(self, topic: str, with_resources: bool) -> str:
+    _DEPTH = {
+        "theory": "Cover concepts and theory ONLY — no exercises or projects. Emphasise clear understanding.",
+        "deep": "Go DEEP on theory: nuances, edge cases, and the 'why' behind each concept. Minimal hands-on.",
+        "deep_practice": "Balance deep theory with HANDS-ON PRACTICE — include exercises/drills in each module.",
+        "projects": "PROJECT-BASED: each module should culminate in a concrete build so the learner learns by doing.",
+        "interview": "Optimise for INTERVIEW / JOB-READINESS: prioritise high-frequency topics, practice problems, and real-world application.",
+    }
+
+    def _prompt(self, topic: str, with_resources: bool, duration: str, depth: str) -> str:
+        depth_line = self._DEPTH.get(depth, self._DEPTH["deep_practice"])
+        if duration and duration != "flexible":
+            schedule = (
+                f"Fit the ENTIRE path within {duration}. Break it into a realistic SCHEDULE "
+                "(day-by-day for short timeframes up to ~2 weeks, otherwise week-by-week) with an "
+                "estimated time commitment per block. If the timeframe is tight, prioritise the "
+                "essentials and note briefly what you trimmed."
+            )
+        else:
+            schedule = "Order modules logically from basics to advanced; no fixed deadline."
         res = (
-            "For EACH module, also recommend 2-3 specific, well-known online resources "
-            "by name (e.g. named courses, official docs, books, or YouTube channels) and "
-            "say where to find them."
+            "For EACH module, also recommend 2-3 specific, well-known online resources by name "
+            "(named courses, official docs, books, or YouTube channels) and where to find them."
             if with_resources else
             "Focus on concepts and skills only — do not list external links or resources."
         )
         return (
             f"Design a complete learning path for: '{topic}'.\n"
-            "Take the learner from absolute basics to advanced / job-ready.\n"
-            "Start with a one-line overview and a realistic total time estimate.\n"
-            "Then give ordered MODULES. For each module include:\n"
-            "- a '## Module N: title'\n"
-            "- one line on why it matters\n"
-            "- '- ' bullet subtopics to learn\n"
+            f"Depth preference: {depth_line}\n"
+            f"Time constraint: {schedule}\n"
+            "Start with a one-line overview and a summary of the plan (schedule + weekly/daily time).\n"
+            "Then give ordered MODULES. For each: a '## ' heading (include the day/week range when scheduled), "
+            "one line on why it matters, and '- ' bullet subtopics.\n"
             f"{res}\n"
             "End with a short 'Next steps / how to practise' section.\n"
             "Use markdown headings (#, ##) and '-' bullets only."
         )
 
-    def create_stream(self, topic: str, with_resources: bool):
-        yield from generate_stream(self._prompt(topic, with_resources),
+    def create_stream(self, topic: str, with_resources: bool,
+                      duration: str = "flexible", depth: str = "deep_practice"):
+        yield from generate_stream(self._prompt(topic, with_resources, duration, depth),
                                    system=self.persona, temperature=0.6)
 
 
