@@ -97,7 +97,9 @@
   .md pre{background:rgba(0,0,0,.4);padding:12px;border-radius:10px;overflow-x:auto;margin:10px 0}
   .md pre code{background:none;padding:0;color:#d7f5ff}
   /* Hero */
-  .hero{max-width:1160px;margin:0 auto;padding:10px 30px 20px;text-align:center;animation:rise .6s ease both}
+  .hero{max-width:1160px;margin:0 auto;padding:10px 30px 20px;text-align:center;animation:rise .6s ease both;
+    max-height:900px;overflow:hidden;transition:max-height .45s ease,opacity .35s ease,padding .45s ease}
+  .hero.collapsed{max-height:0;opacity:0;padding-top:0;padding-bottom:0;pointer-events:none}
   @media(max-width:860px){.hero{padding:6px 16px 14px}}
   .hero .eyebrow{display:inline-block;font-size:11.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--accent2);
     border:1px solid rgba(34,211,238,.3);background:rgba(34,211,238,.08);padding:6px 14px;border-radius:999px}
@@ -126,7 +128,7 @@
     <span class="hchip">⚡ Instant, cached loading</span>
     <span class="hchip">🎯 Learns your weak spots</span>
   </div>
-  <button class="btn hero-cta" onclick="document.querySelector('.wrap').scrollIntoView({behavior:'smooth'})">Get started ↓</button>
+  <button class="btn hero-cta" onclick="startApp()">Get started ↓</button>
 </section>
 
 <div class="wrap">
@@ -191,6 +193,12 @@ let current = null, quiz = [], quizKind = "mcq", sessionScores = [];
 const out = document.getElementById('output');
 const $ = s => document.querySelector(s);
 
+function startApp(){
+  const hero=document.querySelector('.hero');
+  if(!hero)return;
+  hero.classList.add('collapsed');
+  setTimeout(()=>{hero.style.display='none';window.scrollTo({top:0,behavior:'smooth'});},450);
+}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2400);}
 async function api(url,opts){const r=await fetch(url,opts);if(!r.ok){const e=await r.json().catch(()=>({error:r.statusText}));throw new Error(e.error||'request failed');}return r.json();}
 function busy(msg){out.innerHTML=`<p><span class="spinner"></span> &nbsp;${msg}</p>`;}
