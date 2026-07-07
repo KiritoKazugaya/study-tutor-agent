@@ -3,35 +3,53 @@
 Built for the **5-Day AI Agents: Intensive Vibe Coding Capstone** · Track: **Agents for Good** (education).
 
 Study Tutor turns your own notes into an interactive tutor. Drop your documents
-into a subject folder and the agents will **summarize** them, **quiz** you
-(MCQ / short answer / interview / a live **coding round in the terminal**),
-**grade** you with an LLM-as-a-Judge, and **remember your weak topics** so the
-next quiz targets exactly what you keep getting wrong.
+into a subject folder and a team of agents will **summarize** them, **quiz** you
+(MCQ / short answer / interview / coding), **grade** you with an LLM-as-a-Judge,
+answer your **questions** from the material, build **flashcards**, and
+**remember your weak topics** so the next quiz targets what you keep getting wrong.
 
-## Course concepts demonstrated (≥3 required)
-1. **Multi-agent system** — a `Coordinator` routes requests to `Summarizer`,
-   `QuizMaster`, and `Evaluator` specialist agents (`study_tutor/agents.py`).
+## Features
+- 🧠 **Streaming summaries** — exam-ready notes that type out live.
+- 📝 **Adaptive quizzes** — MCQ / short / interview / coding, with immutable
+  answers, specific grading, and weak-topic personalisation.
+- 💬 **Ask the Tutor** — a chat that answers from *your* uploaded notes (streamed).
+- 🃏 **Flashcards** — a flip-card deck generated from your material.
+- 📈 **Progress tracking** — animated score chart + weak-topic memory, with a
+  confetti celebration on high scores.
+- ⚡ **Instant loading** — thinking disabled + pre-warmed cache of summaries and
+  question pools on upload.
+- 🗂️ **Subjects** — create, upload docs to, and delete subjects (full CRUD).
+- Two front-ends over one backend: a **Flask web app** and a **terminal CLI**.
+
+## Course concepts demonstrated (≥3 required — this shows 6)
+1. **Multi-agent system** — a `Coordinator` routes to `Summarizer`, `QuizMaster`,
+   `Evaluator`, `Tutor`, and `Flashcard` specialist agents (`study_tutor/agents.py`).
 2. **Agent tools / function-calling** — subject-folder management, document
    ingestion (.txt/.md/.pdf), and a sandboxed code runner (`study_tutor/tools.py`).
 3. **Sessions & memory** — persistent `student_memory.json` tracks weak topics and
    scores across runs and personalises future quizzes (`study_tutor/core.py`).
-4. **Agent quality / evaluation (bonus)** — the `Evaluator` is an
-   **LLM-as-a-Judge** that scores answers and drives the memory updates.
+4. **Agent quality / evaluation** — the `Evaluator` is an **LLM-as-a-Judge** that
+   scores answers and drives the memory updates.
+5. **Context engineering / caching** — summaries and question pools are pre-built
+   on upload and served from a per-subject cache (`study_tutor/cache.py`).
+6. **Grounded Q&A (RAG-style) + streaming** — the `Tutor` answers strictly from the
+   student's documents, streamed token-by-token for a responsive UX.
 
 ## Architecture
 ```
-        You (terminal / natural language)
+              You  (web app / terminal)
                      │
               ┌──────▼───────┐
               │ Coordinator  │  routes the request
               └──────┬───────┘
-        ┌────────────┼─────────────┐
-   ┌────▼────┐  ┌────▼─────┐  ┌────▼──────┐
-   │Summarizer│  │QuizMaster│  │ Evaluator │  (LLM-as-a-Judge)
-   └────┬────┘  └────┬─────┘  └────┬──────┘
-        └───── tools: docs / folders / code runner ─────┘
+   ┌───────────┬─────┼───────────┬───────────┐
+┌──▼────┐ ┌────▼────┐ ┌──▼─────┐ ┌─▼────┐ ┌──▼──────┐
+│Summar-│ │QuizMaster│ │Evaluator│ │Tutor │ │Flashcard│
+│izer   │ │          │ │(Judge) │ │(Q&A) │ │         │
+└──┬────┘ └────┬────┘ └──┬─────┘ └─┬────┘ └──┬──────┘
+   └──── tools: docs / folders / code runner ────┘
                      │
-             student_memory.json  (weak topics + scores)
+      cache (pre-warmed) · student_memory.json (weak topics + scores)
 ```
 
 ## Setup (2 minutes)
