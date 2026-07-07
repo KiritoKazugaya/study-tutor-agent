@@ -1,0 +1,25 @@
+Cell Biology — Core Notes
+
+The cell is the basic structural and functional unit of life. Cells are of two
+broad types: prokaryotic (no membrane-bound nucleus, e.g. bacteria) and
+eukaryotic (membrane-bound nucleus and organelles, e.g. plant and animal cells).
+
+Key organelles:
+- Nucleus: stores DNA and controls cell activities.
+- Mitochondria: the "powerhouse"; produces ATP via cellular respiration.
+- Ribosomes: sites of protein synthesis.
+- Endoplasmic reticulum (rough = with ribosomes, smooth = lipid synthesis).
+- Golgi apparatus: modifies, sorts, and packages proteins.
+- Chloroplast (plants only): carries out photosynthesis.
+- Cell membrane: selectively permeable barrier controlling transport.
+
+Photosynthesis (in chloroplasts):
+  6CO2 + 6H2O + light energy -> C6H12O6 + 6O2
+
+Cellular respiration (in mitochondria):
+  C6H12O6 + 6O2 -> 6CO2 + 6H2O + ATP
+
+Common exam traps:
+1. Confusing prokaryotic vs eukaryotic (bacteria have NO nucleus).
+2. Thinking only animal cells have mitochondria — plant cells have them too.
+3. Mixing up photosynthesis (builds glucose) with respiration (breaks it down).

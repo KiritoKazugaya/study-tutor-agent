@@ -1,0 +1,9 @@
+.env
+student_memory.json
+__pycache__/
+*.pyc
+
+# Keep only the sample Biology subject in the repo; ignore personal uploads
+subjects/*
+!subjects/Biology/
+!subjects/Biology/**

@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Study Tutor</title>
+<style>
+  :root{
+    --bg1:#0f0c29; --bg2:#302b63; --bg3:#24243e;
+    --card:rgba(255,255,255,.07); --stroke:rgba(255,255,255,.14);
+    --accent:#7c5cff; --accent2:#22d3ee; --good:#22c55e; --bad:#f43f5e; --warn:#f59e0b;
+    --text:#eef0ff; --muted:#a7abd0;
+    --shadow:0 10px 40px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html,body{max-width:100%;overflow-x:hidden}
+  body{
+    margin:0; min-height:100vh; color:var(--text);
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    background:linear-gradient(-45deg,var(--bg1),var(--bg2),var(--bg3),#1a1a2e);
+    background-size:400% 400%; animation:grad 18s ease infinite;
+  }
+  @keyframes grad{0%{background-position:0 50%}50%{background-position:100% 50%}100%{background-position:0 50%}}
+  header{padding:22px 30px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  header .logo{font-size:30px;filter:drop-shadow(0 2px 6px rgba(124,92,255,.6))}
+  header h1{margin:0;font-size:23px;font-weight:700;letter-spacing:.3px}
+  header p{margin:2px 0 0;color:var(--muted);font-size:13px}
+  .wrap{display:grid;grid-template-columns:290px 1fr;gap:20px;padding:0 30px 40px;max-width:1200px;margin:0 auto}
+  @media(max-width:860px){.wrap{grid-template-columns:1fr;padding:0 16px 30px}header{padding:18px 16px}}
+  .card{background:var(--card);border:1px solid var(--stroke);border-radius:18px;padding:20px;
+    backdrop-filter:blur(14px);box-shadow:var(--shadow);animation:rise .5s ease both;min-width:0}
+  @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  h2{font-size:14px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:0 0 14px}
+  input,select,button,textarea{font-family:inherit;font-size:14px}
+  input[type=text],input[type=number],select,textarea{width:100%;padding:10px 12px;border-radius:11px;border:1px solid var(--stroke);
+    background:rgba(0,0,0,.25);color:var(--text);outline:none;transition:.2s}
+  input:focus,textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,92,255,.25)}
+  textarea{resize:vertical;min-height:80px}
+  .btn{cursor:pointer;border:none;border-radius:11px;padding:10px 15px;font-weight:600;color:#fff;white-space:nowrap;
+    background:linear-gradient(135deg,var(--accent),#a855f7);transition:transform .12s,box-shadow .2s;box-shadow:0 6px 18px rgba(124,92,255,.35)}
+  .btn:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(124,92,255,.5)}
+  .btn:active{transform:translateY(0)}
+  .btn:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+  .btn.ghost{background:rgba(255,255,255,.08);box-shadow:none;border:1px solid var(--stroke)}
+  .btn.mini{padding:7px 12px;font-size:12.5px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+  .field{display:flex;flex-direction:column;gap:4px}
+  .field label{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+  .field select,.field input{padding:8px 10px}
+  .divider{width:1px;align-self:stretch;background:var(--stroke);margin:0 2px}
+  @media(max-width:860px){.divider{display:none}}
+  .subject{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 13px;border-radius:11px;
+    border:1px solid transparent;cursor:pointer;transition:.18s;margin-bottom:8px;background:rgba(255,255,255,.04)}
+  .subject:hover{background:rgba(255,255,255,.09)}
+  .subject.active{border-color:var(--accent);background:rgba(124,92,255,.18)}
+  .subject .cnt{font-size:12px;color:var(--muted);white-space:nowrap}
+  .pill{display:inline-block;padding:5px 11px;border-radius:999px;background:rgba(34,211,238,.15);
+    color:var(--accent2);font-size:12px;margin:3px 4px 0 0;border:1px solid rgba(34,211,238,.3)}
+  .muted{color:var(--muted)}
+  .q{border:1px solid var(--stroke);border-radius:14px;padding:16px;margin-bottom:14px;background:rgba(0,0,0,.18);animation:rise .4s ease both;transition:opacity .3s}
+  .q.locked{opacity:.92;border-color:rgba(124,92,255,.4)}
+  .q .qhead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .q h4{margin:0 0 10px;font-size:15px;font-weight:600;line-height:1.45}
+  .lockbadge{font-size:11px;color:var(--good);border:1px solid rgba(34,197,94,.4);background:rgba(34,197,94,.12);padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .opt{display:block;padding:10px 12px;border-radius:10px;border:1px solid var(--stroke);margin:7px 0;cursor:pointer;transition:.15s}
+  .opt:hover{background:rgba(255,255,255,.07)}
+  .opt.disabled{cursor:default;pointer-events:none}
+  .opt.correct{border-color:var(--good);background:rgba(34,197,94,.16)}
+  .opt.wrong{border-color:var(--bad);background:rgba(244,63,94,.16)}
+  .opt input{margin-right:9px}
+  .verdict{margin-top:12px;padding:10px 12px;border-radius:10px;font-size:13.5px;animation:pop .3s ease;line-height:1.5}
+  @keyframes pop{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+  .verdict.ok{background:rgba(34,197,94,.13);border:1px solid rgba(34,197,94,.4)}
+  .verdict.no{background:rgba(244,63,94,.13);border:1px solid rgba(244,63,94,.4)}
+  .expected{margin-top:10px;padding:11px 13px;border-radius:10px;background:rgba(124,92,255,.1);border:1px solid rgba(124,92,255,.3)}
+  .expected .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:4px}
+  .scorebar{height:10px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:8px}
+  .scorebar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent2),var(--good));transition:width .7s cubic-bezier(.2,.8,.2,1)}
+  .spinner{width:18px;height:18px;border:3px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;vertical-align:middle}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1b1740;border:1px solid var(--stroke);
+    padding:12px 18px;border-radius:12px;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:.3s;z-index:20;max-width:90vw}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px)}
+  label.file{display:inline-flex;gap:8px;align-items:center;cursor:pointer}
+  /* Rendered markdown */
+  .md{line-height:1.6;font-size:14.5px}
+  .md h2,.md h3,.md h4{margin:16px 0 8px;line-height:1.3}
+  .md h2{font-size:18px;color:#fff;text-transform:none;letter-spacing:0}
+  .md h3{font-size:16px;color:#e9e6ff}
+  .md h4{font-size:14.5px;color:var(--accent2);text-transform:none;letter-spacing:0}
+  .md p{margin:8px 0}
+  .md ul,.md ol{margin:8px 0;padding-left:22px}
+  .md li{margin:5px 0}
+  .md strong{color:#fff}
+  .md code{background:rgba(0,0,0,.35);padding:2px 6px;border-radius:6px;font-family:'Consolas',monospace;font-size:13px;color:#ffd39b}
+  .md pre{background:rgba(0,0,0,.4);padding:12px;border-radius:10px;overflow-x:auto;margin:10px 0}
+  .md pre code{background:none;padding:0;color:#d7f5ff}
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">📚</span>
+  <div><h1>Study Tutor</h1><p>Multi-agent study assistant · summarize · quiz · grade · remember</p></div>
+</header>
+
+<div class="wrap">
+  <!-- Sidebar -->
+  <aside class="card">
+    <h2>Subjects</h2>
+    <div id="subjects"></div>
+    <div style="margin:14px 0 8px" class="row">
+      <input id="newSubject" type="text" placeholder="New subject…" style="flex:1;min-width:0" onkeydown="if(event.key==='Enter')createSubject()" />
+      <button class="btn mini" onclick="createSubject()">Add</button>
+    </div>
+    <div class="row">
+      <label class="file btn ghost mini">
+        📎 Upload doc
+        <input id="fileInput" type="file" accept=".txt,.md,.pdf" style="display:none" onchange="uploadFile()" />
+      </label>
+      <span id="uploadHint" class="muted" style="font-size:12px"></span>
+    </div>
+    <p class="muted" style="font-size:12px;margin-top:14px">Pick a subject, upload <b>.txt/.md/.pdf</b>, then summarize or quiz yourself. A sample <b>Biology</b> subject is ready.</p>
+  </aside>
+
+  <!-- Main -->
+  <main class="card">
+    <div class="toolbar">
+      <button class="btn" onclick="summarize()">🧠 Summarize</button>
+      <div class="divider"></div>
+      <div class="field"><label>Type</label>
+        <select id="quizKind">
+          <option value="mcq">MCQ</option>
+          <option value="short">Short answer</option>
+          <option value="interview">Interview</option>
+          <option value="coding">Coding</option>
+        </select>
+      </div>
+      <div class="field"><label>Questions</label>
+        <input id="quizCount" type="number" min="1" max="10" value="5" style="width:80px" />
+      </div>
+      <div class="field"><label>Focus</label>
+        <select id="quizFocus">
+          <option value="auto">Auto (from topic)</option>
+          <option value="core">Core concepts</option>
+          <option value="code">Code / applied</option>
+          <option value="mixed">Mixed</option>
+        </select>
+      </div>
+      <button class="btn" onclick="startQuiz()">📝 Start quiz</button>
+      <div class="divider"></div>
+      <button class="btn ghost" onclick="loadProgress()">📈 Progress</button>
+      <span id="active" class="pill" style="margin-left:auto">No subject selected</span>
+    </div>
+    <div id="output"><p class="muted">Select a subject on the left to begin. The sample <b>Biology</b> subject is ready to try.</p></div>
+  </main>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+let current = null, quiz = [], quizKind = "mcq", sessionScores = [];
+const out = document.getElementById('output');
+const $ = s => document.querySelector(s);
+
+function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2400);}
+async function api(url,opts){const r=await fetch(url,opts);if(!r.ok){const e=await r.json().catch(()=>({error:r.statusText}));throw new Error(e.error||'request failed');}return r.json();}
+function busy(msg){out.innerHTML=`<p><span class="spinner"></span> &nbsp;${msg}</p>`;}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function err(e){return `<div class="q verdict no">⚠️ ${escapeHtml(e.message)}<br><span class="muted">Check that GEMINI_API_KEY is set in .env and the server was restarted.</span></div>`;}
+
+/* --- Minimal, safe Markdown -> HTML renderer (headings, bold, italics, code, lists) --- */
+function mdToHtml(src){
+  const esc = s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  function inline(t){
+    t=esc(t);
+    t=t.replace(/`([^`]+)`/g,(m,c)=>'<code>'+c+'</code>');
+    // bold first, non-greedy so it may contain inner emphasis; then italics inside it
+    t=t.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+    t=t.replace(/(^|[^*])\*(?!\s)([^*\n]+?)\*/g,'$1<em>$2</em>');
+    t=t.replace(/(^|\s)_([^_\n]+)_/g,'$1<em>$2</em>');
+    // strip any stray unmatched bold markers so raw ** never reaches the user
+    t=t.replace(/\*\*/g,'');
+    return t;
+  }
+  const lines=String(src).replace(/\r/g,'').split('\n');
+  let html='',listType=null,inCode=false,codeBuf=[];
+  const closeList=()=>{if(listType){html+=(listType==='ul'?'</ul>':'</ol>');listType=null;}};
+  for(const raw of lines){
+    if(/^\s*```/.test(raw)){
+      if(inCode){html+='<pre><code>'+esc(codeBuf.join('\n'))+'</code></pre>';codeBuf=[];inCode=false;}
+      else{closeList();inCode=true;}
+      continue;
+    }
+    if(inCode){codeBuf.push(raw);continue;}
+    if(!raw.trim()){closeList();continue;}
+    let m;
+    if(m=raw.match(/^\s*(#{1,6})\s+(.*)/)){closeList();const lvl=Math.min(m[1].length+1,6);html+=`<h${lvl}>${inline(m[2])}</h${lvl}>`;continue;}
+    if(m=raw.match(/^(\s*)[-*]\s+(.*)/)){if(listType!=='ul'){closeList();html+='<ul>';listType='ul';}const ind=Math.min(m[1].length,12);html+=`<li style="margin-left:${ind*0.55}em">${inline(m[2])}</li>`;continue;}
+    if(m=raw.match(/^(\s*)\d+\.\s+(.*)/)){if(listType!=='ol'){closeList();html+='<ol>';listType='ol';}html+=`<li>${inline(m[2])}</li>`;continue;}
+    closeList();html+=`<p>${inline(raw.trim())}</p>`;
+  }
+  if(inCode)html+='<pre><code>'+esc(codeBuf.join('\n'))+'</code></pre>';
+  closeList();
+  return html;
+}
+
+async function loadSubjects(){
+  const subs = await api('/api/subjects');
+  const box = $('#subjects'); box.innerHTML='';
+  if(!subs.length){box.innerHTML='<p class="muted" style="font-size:13px">No subjects yet — add one below.</p>';}
+  subs.forEach(s=>{
+    const d=document.createElement('div');
+    d.className='subject'+(s.name===current?' active':'');
+    d.innerHTML=`<span>📁 ${escapeHtml(s.name)}</span><span class="cnt">${s.docs.length} docs</span>`;
+    d.onclick=()=>{current=s.name;$('#active').textContent=s.name;loadSubjects();};
+    box.appendChild(d);
+  });
+}
+async function createSubject(){
+  const name=$('#newSubject').value.trim(); if(!name)return;
+  await api('/api/subject',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+  $('#newSubject').value=''; current=name; $('#active').textContent=name; toast('Subject created — now upload a doc'); loadSubjects();
+}
+async function uploadFile(){
+  if(!current){toast('Pick a subject first');$('#fileInput').value='';return;}
+  const f=$('#fileInput').files[0]; if(!f)return;
+  const fd=new FormData(); fd.append('subject',current); fd.append('file',f);
+  $('#uploadHint').textContent='uploading…';
+  try{await api('/api/upload',{method:'POST',body:fd});toast('Uploaded '+f.name);}
+  catch(e){toast(e.message);}
+  $('#uploadHint').textContent=''; $('#fileInput').value=''; loadSubjects();
+}
+function needSubject(){if(!current){toast('Select a subject first');return true;}return false;}
+
+async function summarize(){
+  if(needSubject())return; busy('Summarizer agent reading your notes…');
+  try{const r=await api('/api/summarize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subject:current})});
+    out.innerHTML=`<h2>Summary · ${escapeHtml(current)}</h2><div class="q"><div class="md">${mdToHtml(r.summary)}</div></div>`;}
+  catch(e){out.innerHTML=err(e);}
+}
+
+async function startQuiz(){
+  if(needSubject())return;
+  quizKind=$('#quizKind').value; sessionScores=[];
+  const n=Math.max(1,Math.min(10,parseInt($('#quizCount').value)||5));
+  const style=$('#quizFocus').value;
+  busy(`QuizMaster agent writing ${n} ${quizKind.toUpperCase()} questions…`);
+  try{
+    const r=await api('/api/quiz',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subject:current,kind:quizKind,n,style})});
+    quiz=(r.questions||[]).map(q=>({...q,locked:false}));
+    let head=`<h2>${quizKind.toUpperCase()} quiz · ${escapeHtml(current)}</h2>`;
+    if(r.focus&&r.focus.length)head+=`<p class="muted">Personalised around your weak topics: ${r.focus.map(t=>`<span class="pill">${escapeHtml(t)}</span>`).join('')}</p>`;
+    out.innerHTML=head+quiz.map((q,i)=>renderQ(q,i)).join('')+`<div id="final"></div>`;
+  }catch(e){out.innerHTML=err(e);}
+}
+
+function renderQ(q,i){
+  let body='';
+  if(quizKind==='mcq'){
+    body=(q.options||[]).map(o=>{const L=(o.trim()[0]||'').toUpperCase();return `<label class="opt" id="o${i}_${L}"><input type="radio" name="q${i}" value="${L}">${escapeHtml(o)}</label>`;}).join('');
+  }else if(quizKind==='coding'){
+    body=`<p class="muted" style="font-family:monospace">${escapeHtml(q.signature||'')}</p><textarea id="a${i}" placeholder="Write your solution / answer…"></textarea>`;
+  }else{
+    body=`<textarea id="a${i}" placeholder="Your answer…"></textarea>`;
+  }
+  return `<div class="q" id="q${i}">
+    <div class="qhead"><h4>Q${i+1}. ${escapeHtml(q.q||'')}</h4><span id="lb${i}"></span></div>
+    ${body}
+    <div class="row" style="margin-top:10px"><button class="btn mini" id="gb${i}" onclick="grade(${i})">Submit &amp; grade</button>
+    <span class="muted" style="font-size:12px">Answer locks once submitted.</span></div>
+    <div id="v${i}"></div></div>`;
+}
+
+async function grade(i){
+  const q=quiz[i]; if(q.locked)return;
+  let answer='';
+  if(quizKind==='mcq'){const sel=document.querySelector(`input[name=q${i}]:checked`);if(!sel){toast('Pick an option first');return;}answer=sel.value;}
+  else{answer=($('#a'+i).value||'').trim();if(!answer){toast('Write an answer first');return;}}
+
+  // Lock immediately so the answer is immutable.
+  q.locked=true;
+  const gb=$('#gb'+i); gb.disabled=true; gb.textContent='🔒 Submitted';
+  const hint=document.querySelector(`#q${i} .row .muted`); if(hint)hint.remove();
+  $('#lb'+i).innerHTML='<span class="lockbadge">✓ Answered</span>';
+  document.querySelectorAll(`#q${i} input, #q${i} textarea`).forEach(el=>el.disabled=true);
+  $('#v'+i).innerHTML='<span class="spinner"></span> grading…';
+
+  try{
+    let v;
+    if(quizKind==='mcq'){
+      const correct=answer===String(q.answer||'').trim().toUpperCase()[0];
+      v={score:correct?10:0,correct};
+      // colour the options
+      const L=String(q.answer||'').trim().toUpperCase()[0];
+      const cel=$('#o'+i+'_'+L); if(cel)cel.classList.add('correct');
+      if(!correct){const wel=$('#o'+i+'_'+answer); if(wel)wel.classList.add('wrong');}
+      document.querySelectorAll('#q'+i+' .opt').forEach(el=>el.classList.add('disabled'));
+      // still record weakness on the server
+      await api('/api/grade',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({kind:'mcq',question:q.q,answer_key:q.answer||'',answer,topic:q.topic||current})});
+    }else{
+      v=await api('/api/grade',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({kind:quizKind,question:q.q,ideal:q.ideal||'',answer,topic:q.topic||current})});
+    }
+    sessionScores[i]=v.score||0;
+    renderVerdict(i,q,v);
+    maybeFinish();
+  }catch(e){$('#v'+i).innerHTML=`<div class="verdict no">error: ${escapeHtml(e.message)}</div>`;sessionScores[i]=0;maybeFinish();}
+}
+
+function renderVerdict(i,q,v){
+  const cls=v.correct?'ok':'no', icon=v.correct?'✅':'❌';
+  let html=`<div class="verdict ${cls}"><b>${icon} ${v.score}/10</b>`;
+  if(quizKind==='mcq'){
+    html+=` — correct answer: <b>${escapeHtml(String(q.answer||''))}</b>`;
+    if(q.explanation)html+=`<div style="margin-top:6px">${mdToHtml(q.explanation)}</div>`;
+  }else{
+    if(v.feedback)html+=`<div style="margin-top:6px">${escapeHtml(v.feedback)}</div>`;
+  }
+  html+=`</div>`;
+  if(quizKind!=='mcq' && q.ideal){
+    html+=`<div class="expected"><div class="lbl">Expected answer</div><div class="md">${mdToHtml(q.ideal)}</div></div>`;
+  }
+  $('#v'+i).innerHTML=html;
+}
+
+function maybeFinish(){
+  const done=sessionScores.filter(x=>x!==undefined).length;
+  if(done<quiz.length)return;
+  const avg=Math.round(sessionScores.reduce((a,b)=>a+(b||0),0)/quiz.length*10)/10;
+  api('/api/session_score',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subject:current,kind:quizKind,score:avg})}).catch(()=>{});
+  $('#final').innerHTML=`<div class="q"><h4>🎯 Session score: ${avg}/10</h4>
+    <div class="scorebar"><i style="width:${avg*10}%"></i></div>
+    <p class="muted" style="margin-top:8px">Saved to memory — weak topics will be prioritised next time. <button class="btn ghost mini" onclick="loadProgress()">See progress</button></p></div>`;
+  $('#final').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+async function loadProgress(){
+  busy('Loading your memory…');
+  try{
+    const p=await api('/api/progress');
+    let html='<h2>Your progress</h2>';
+    html+='<div class="q"><h4>Weak topics to focus on</h4>'+(p.weak_topics.length?p.weak_topics.map(t=>`<span class="pill">${escapeHtml(t)}</span>`).join(''):'<span class="muted">None yet — take a quiz.</span>')+'</div>';
+    html+='<div class="q"><h4>Recent sessions</h4>'+(p.scores.length?p.scores.slice().reverse().map(s=>`<div class="row" style="justify-content:space-between"><span>${escapeHtml(s.subject)} · ${escapeHtml(s.kind)}</span><b>${s.score}/10</b></div>`).join(''):'<span class="muted">No quizzes yet.</span>')+'</div>';
+    out.innerHTML=html;
+  }catch(e){out.innerHTML=err(e);}
+}
+
+loadSubjects();
+</script>
+</body>
+</html>
