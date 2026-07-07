@@ -150,7 +150,10 @@
       <button class="btn" onclick="startQuiz()">📝 Start quiz</button>
       <div class="divider"></div>
       <button class="btn ghost" onclick="loadProgress()">📈 Progress</button>
-      <span id="active" class="pill" style="margin-left:auto">No subject selected</span>
+      <span style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        <span id="ready" class="muted" style="font-size:12px"></span>
+        <span id="active" class="pill">No subject selected</span>
+      </span>
     </div>
     <div id="output"><p class="muted">Select a subject on the left to begin. The sample <b>Biology</b> subject is ready to try.</p></div>
   </main>
@@ -213,23 +216,35 @@ async function loadSubjects(){
     const d=document.createElement('div');
     d.className='subject'+(s.name===current?' active':'');
     d.innerHTML=`<span>📁 ${escapeHtml(s.name)}</span><span class="cnt">${s.docs.length} docs</span>`;
-    d.onclick=()=>{current=s.name;$('#active').textContent=s.name;loadSubjects();};
+    d.onclick=()=>{current=s.name;$('#active').textContent=s.name;refreshReady();loadSubjects();};
     box.appendChild(d);
   });
+}
+let readyTimer=null;
+async function refreshReady(){
+  if(readyTimer){clearTimeout(readyTimer);readyTimer=null;}
+  if(!current){$('#ready').textContent='';return;}
+  try{
+    const r=await api('/api/ready?subject='+encodeURIComponent(current));
+    const poolReady=Object.values(r.pool||{}).some(v=>v>0);
+    if(r.building){$('#ready').innerHTML='⏳ preparing…';readyTimer=setTimeout(refreshReady,3000);}
+    else if(r.summary||poolReady){$('#ready').innerHTML='<span style="color:var(--good)">⚡ instant-ready</span>';}
+    else{$('#ready').textContent='';}
+  }catch(e){$('#ready').textContent='';}
 }
 async function createSubject(){
   const name=$('#newSubject').value.trim(); if(!name)return;
   await api('/api/subject',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
-  $('#newSubject').value=''; current=name; $('#active').textContent=name; toast('Subject created — now upload a doc'); loadSubjects();
+  $('#newSubject').value=''; current=name; $('#active').textContent=name; refreshReady(); toast('Subject created — now upload a doc'); loadSubjects();
 }
 async function uploadFile(){
   if(!current){toast('Pick a subject first');$('#fileInput').value='';return;}
   const f=$('#fileInput').files[0]; if(!f)return;
   const fd=new FormData(); fd.append('subject',current); fd.append('file',f);
   $('#uploadHint').textContent='uploading…';
-  try{await api('/api/upload',{method:'POST',body:fd});toast('Uploaded '+f.name);}
+  try{await api('/api/upload',{method:'POST',body:fd});toast('Uploaded '+f.name+' — prepping summary & quizzes ⚡');}
   catch(e){toast(e.message);}
-  $('#uploadHint').textContent=''; $('#fileInput').value=''; loadSubjects();
+  $('#uploadHint').textContent=''; $('#fileInput').value=''; loadSubjects(); refreshReady();
 }
 function needSubject(){if(!current){toast('Select a subject first');return true;}return false;}
 

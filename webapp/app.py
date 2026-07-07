@@ -13,6 +13,7 @@ import os
 import pathlib
 import secrets
 import sys
+import threading
 
 # Windows consoles default to cp1252 and choke on non-ASCII — force UTF-8.
 for _stream in (sys.stdout, sys.stderr):
@@ -38,6 +39,7 @@ from study_tutor.tools import (
 from study_tutor.agents import (
     SummarizerAgent, QuizMasterAgent, EvaluatorAgent,
 )
+from study_tutor import cache as cachelib
 
 app = Flask(__name__, static_folder=None)
 HERE = pathlib.Path(__file__).resolve().parent
@@ -47,6 +49,49 @@ quizmaster = QuizMasterAgent()
 evaluator = EvaluatorAgent()
 
 ALLOWED = {".txt", ".md", ".pdf"}
+
+# --------------------------------------------------------------------------- #
+# Background pre-warming: build summary + question pools right after upload,   #
+# so later clicks are served instantly from cache.                            #
+# --------------------------------------------------------------------------- #
+QUIZ_KINDS = ("mcq", "short", "interview", "coding")
+POOL_TARGET = 8          # questions to keep ready per kind
+_prewarming: set[str] = set()
+_prewarm_lock = threading.Lock()
+
+
+def _prewarm(subject: str) -> None:
+    with _prewarm_lock:
+        if subject in _prewarming:
+            return
+        _prewarming.add(subject)
+    try:
+        c = cachelib.load(subject)          # blank if docs changed
+        if not c.get("summary"):
+            try:
+                c["summary"] = summarizer.run(subject)
+                cachelib.save(subject, c)
+            except Exception:
+                pass
+        for kind in QUIZ_KINDS:
+            have = len(c["pool"].get(kind, []))
+            if have < POOL_TARGET:
+                try:
+                    fresh = quizmaster.run(
+                        subject, kind, n=POOL_TARGET - have,
+                        variety_nonce=secrets.token_hex(3),
+                    )
+                    c["pool"].setdefault(kind, []).extend(fresh)
+                    cachelib.save(subject, c)
+                except Exception:
+                    pass
+    finally:
+        with _prewarm_lock:
+            _prewarming.discard(subject)
+
+
+def _start_prewarm(subject: str) -> None:
+    threading.Thread(target=_prewarm, args=(subject,), daemon=True).start()
 
 
 @app.get("/")
@@ -81,14 +126,42 @@ def api_upload():
         return jsonify({"error": f"only {', '.join(sorted(ALLOWED))} allowed"}), 400
     dest = create_subject(subject) / pathlib.Path(file.filename).name
     file.save(str(dest))
-    return jsonify({"ok": True, "saved": dest.name})
+    _start_prewarm(subject)   # build summary + quiz pools in the background
+    return jsonify({"ok": True, "saved": dest.name, "prewarming": True})
+
+
+@app.post("/api/prewarm")
+def api_prewarm():
+    """Manually kick off pre-warming for a subject (e.g. the sample one)."""
+    subject = (request.json or {}).get("subject", "").strip()
+    if subject:
+        _start_prewarm(subject)
+    return jsonify({"ok": True})
+
+
+@app.get("/api/ready")
+def api_ready():
+    """Report what's already cached so the UI can show a 'ready' badge."""
+    subject = request.args.get("subject", "").strip()
+    c = cachelib.load(subject)
+    return jsonify({
+        "summary": bool(c.get("summary")),
+        "pool": {k: len(c.get("pool", {}).get(k, [])) for k in QUIZ_KINDS},
+        "building": subject in _prewarming,
+    })
 
 
 @app.post("/api/summarize")
 def api_summarize():
     subject = (request.json or {}).get("subject", "").strip()
+    c = cachelib.load(subject)
+    if c.get("summary"):
+        return jsonify({"summary": c["summary"], "cached": True})
     try:
-        return jsonify({"summary": summarizer.run(subject)})
+        summary = summarizer.run(subject)
+        c["summary"] = summary
+        cachelib.save(subject, c)
+        return jsonify({"summary": summary})
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
 
@@ -106,6 +179,30 @@ def api_quiz():
     style = data.get("style", "auto")
     mem = load_memory()
     focus = top_weak_topics(mem)
+
+    # Fast path: serve instantly from the pre-built pool (default 'auto' style).
+    # Personalisation still happens — we bias the cached questions toward the
+    # student's weak topics using their topic tags, with NO extra LLM call.
+    if style == "auto":
+        c = cachelib.load(subject)
+        pool = c.get("pool", {}).get(kind, [])
+        if len(pool) >= n:
+            if focus:
+                focus_words = {w for f in focus for w in f.lower().split() if len(w) > 3}
+
+                def _hits_weak(q):
+                    topic = str(q.get("topic", "")).lower()
+                    return any(w in topic for w in focus_words)
+
+                pool = sorted(pool, key=lambda q: not _hits_weak(q))  # weak topics first
+            served, remaining = pool[:n], pool[n:]
+            c.setdefault("pool", {})[kind] = remaining
+            cachelib.save(subject, c)
+            if len(remaining) < n:            # running low → refill in background
+                _start_prewarm(subject)
+            return jsonify({"questions": served, "focus": focus, "cached": True})
+
+    # Slow path: generate fresh (personalised or pool not ready yet).
     try:
         questions = quizmaster.run(
             subject, kind, n=n, focus=focus, style=style,

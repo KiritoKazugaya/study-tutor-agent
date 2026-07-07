@@ -1,5 +1,6 @@
 .env
 student_memory.json
+.cache/
 __pycache__/
 *.pyc
 
