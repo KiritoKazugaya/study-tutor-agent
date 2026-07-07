@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import re
 
-from .core import generate
+from .core import generate, generate_stream
 from .tools import load_subject_docs
 
 
@@ -28,19 +28,31 @@ class SummarizerAgent:
     name = "Summarizer"
     persona = "You are an expert tutor who writes concise, accurate, exam-ready study notes."
 
-    def run(self, subject: str) -> str:
-        docs = load_subject_docs(subject)
-        if not docs:
-            return ("No documents found for that subject yet. "
-                    "Add .txt/.md/.pdf files to its folder first.")
-        prompt = (
+    _EMPTY = ("No documents found for that subject yet. "
+              "Add .txt/.md/.pdf files to its folder first.")
+
+    def _prompt(self, subject: str, docs: str) -> str:
+        return (
             f"Summarize these study materials for '{subject}' into clear notes:\n"
             "- Key concepts as bullet points\n"
             "- A short 'must remember' list\n"
             "- 3 common mistakes students make on this topic\n\n"
             f"{docs}"
         )
-        return generate(prompt, system=self.persona, temperature=0.4)
+
+    def run(self, subject: str) -> str:
+        docs = load_subject_docs(subject)
+        if not docs:
+            return self._EMPTY
+        return generate(self._prompt(subject, docs), system=self.persona, temperature=0.4)
+
+    def run_stream(self, subject: str):
+        docs = load_subject_docs(subject)
+        if not docs:
+            yield self._EMPTY
+            return
+        yield from generate_stream(self._prompt(subject, docs),
+                                   system=self.persona, temperature=0.4)
 
 
 class QuizMasterAgent:
@@ -116,6 +128,50 @@ class EvaluatorAgent:
         result.setdefault("correct", False)
         result.setdefault("feedback", "")
         return result
+
+
+class TutorAgent:
+    """Answers free-text questions grounded in the student's own documents."""
+
+    name = "Tutor"
+    persona = ("You are a warm, precise tutor. Answer using the student's material below. "
+               "If the answer isn't in the material, say so briefly, then give correct general guidance. "
+               "Use short paragraphs and bullet points; keep it focused.")
+
+    def _prompt(self, subject: str, question: str) -> str:
+        docs = load_subject_docs(subject, max_chars=10000)
+        context = f"MATERIAL for '{subject}':\n{docs}" if docs else "(no documents uploaded yet)"
+        return f"Student's question: {question}\n\n{context}"
+
+    def answer(self, subject: str, question: str) -> str:
+        return generate(self._prompt(subject, question), system=self.persona, temperature=0.4)
+
+    def answer_stream(self, subject: str, question: str):
+        yield from generate_stream(self._prompt(subject, question),
+                                   system=self.persona, temperature=0.4)
+
+
+class FlashcardAgent:
+    """Turns study material into concise front/back flashcards."""
+
+    name = "Flashcards"
+    persona = "You create concise, accurate study flashcards. Output ONLY valid JSON."
+
+    def run(self, subject: str, n: int = 8, variety_nonce: str = "") -> list[dict]:
+        docs = load_subject_docs(subject, max_chars=8000)
+        prompt = (
+            f"Create {n} study flashcards from the material on '{subject}'.\n"
+            "Each card: a short prompt on the front, a concise answer on the back.\n"
+            'Return a JSON list of items like: {"front": "term or question", '
+            '"back": "concise definition or answer", "topic": "sub-topic"}\n'
+            f"(freshness token: {variety_nonce})\n\nMATERIAL:\n{docs}"
+        )
+        raw = generate(prompt, system=self.persona, temperature=0.8)
+        try:
+            data = _parse_json(raw)
+        except Exception:
+            data = _parse_json(generate("Convert to a valid JSON list only:\n" + raw, temperature=0))
+        return data if isinstance(data, list) else [data]
 
 
 class CoordinatorAgent:

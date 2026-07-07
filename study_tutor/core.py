@@ -82,6 +82,29 @@ def generate(prompt: str, system: str | None = None, temperature: float = 0.7) -
     raise RuntimeError("Gemini request failed after retry.")
 
 
+def generate_stream(prompt: str, system: str | None = None, temperature: float = 0.7):
+    """Yield the model's response in chunks as they arrive (for live typing UX)."""
+    cfg = types.GenerateContentConfig(
+        temperature=temperature,
+        system_instruction=system,
+        thinking_config=_NO_THINKING,
+    )
+    try:
+        stream = _get_client().models.generate_content_stream(
+            model=MODEL, contents=prompt, config=cfg
+        )
+        for chunk in stream:
+            if getattr(chunk, "text", None):
+                yield chunk.text
+    except Exception as exc:
+        msg = str(exc)
+        if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
+            yield ("\n\n[Gemini quota reached for now — please wait a minute and retry, "
+                   "or use a key with billing enabled.]")
+        else:
+            yield f"\n\n[error: {msg[:160]}]"
+
+
 # --------------------------------------------------------------------------- #
 # Persistent memory (Course concept: Sessions & Memory)                        #
 # --------------------------------------------------------------------------- #

@@ -111,6 +111,36 @@
   .hero-chips{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:18px}
   .hchip{font-size:13px;padding:8px 15px;border-radius:999px;background:var(--card);border:1px solid var(--stroke)}
   .hero-cta{font-size:15px;padding:13px 26px}
+  /* Flashcards */
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}
+  .flip{perspective:1000px;height:160px;cursor:pointer}
+  .flip-inner{position:relative;width:100%;height:100%;transition:transform .5s;transform-style:preserve-3d}
+  .flip.flipped .flip-inner{transform:rotateY(180deg)}
+  .flip-face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border:1px solid var(--stroke);
+    border-radius:14px;padding:16px;display:flex;align-items:center;justify-content:center;text-align:center;background:rgba(0,0,0,.24)}
+  .flip-front{font-weight:600;font-size:14.5px}
+  .flip-back{transform:rotateY(180deg);background:rgba(124,92,255,.14);font-size:13px;overflow:auto}
+  .flip .tag{position:absolute;top:8px;left:10px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  /* Chat / Ask */
+  .chat{display:flex;flex-direction:column;gap:12px;max-height:52vh;overflow:auto;padding:4px}
+  .bubble{padding:12px 15px;border-radius:14px;line-height:1.6;font-size:14.5px}
+  .bubble.you{background:rgba(124,92,255,.18);border:1px solid rgba(124,92,255,.35);align-self:flex-end;max-width:85%}
+  .bubble.tutor{background:rgba(0,0,0,.24);border:1px solid var(--stroke)}
+  .askbar{display:flex;gap:10px;margin-top:12px}
+  /* Progress bars */
+  .pbar{display:flex;align-items:center;gap:10px;margin:9px 0}
+  .pbar .lbl{min-width:130px;font-size:13px;color:var(--text)}
+  .pbar .track{flex:1;height:12px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
+  .pbar .fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--accent2),var(--good));width:0;transition:width .7s ease}
+  .pbar .val{min-width:46px;text-align:right;font-weight:700;font-size:13px}
+  /* Delete on subject */
+  .subject .del{opacity:0;color:var(--muted);border:none;background:none;cursor:pointer;font-size:14px;padding:2px 5px;border-radius:6px;transition:.15s}
+  .subject:hover .del{opacity:.65}
+  .subject .del:hover{color:var(--bad);opacity:1;background:rgba(244,63,94,.12)}
+  /* Confetti */
+  #confetti{position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden}
+  .confdot{position:absolute;width:9px;height:9px;border-radius:2px;top:-12px;animation:fall linear forwards}
+  @keyframes fall{to{transform:translateY(105vh) rotate(680deg);opacity:.15}}
 </style>
 </head>
 <body>
@@ -177,6 +207,8 @@
       </div>
       <button class="btn" onclick="startQuiz()">📝 Start quiz</button>
       <div class="divider"></div>
+      <button class="btn ghost" onclick="startFlashcards()">🃏 Flashcards</button>
+      <button class="btn ghost" onclick="askPanel()">💬 Ask</button>
       <button class="btn ghost" onclick="loadProgress()">📈 Progress</button>
       <span style="margin-left:auto;display:flex;gap:8px;align-items:center">
         <span id="ready" class="muted" style="font-size:12px"></span>
@@ -257,7 +289,9 @@ async function loadSubjects(){
   subs.forEach(s=>{
     const d=document.createElement('div');
     d.className='subject'+(s.name===current?' active':'');
-    d.innerHTML=`<span>📁 ${escapeHtml(s.name)}</span><span class="cnt">${s.docs.length} docs</span>`;
+    d.innerHTML=`<span>📁 ${escapeHtml(s.name)}</span>
+      <span style="display:flex;gap:8px;align-items:center"><span class="cnt">${s.docs.length} docs</span>
+      <button class="del" title="Delete subject">✕</button></span>`;
     d.onclick=()=>{
       current=s.name;$('#active').textContent=s.name;
       if(s.docs&&s.docs.length){   // warm the cache for whatever is selected
@@ -265,6 +299,7 @@ async function loadSubjects(){
       }
       refreshReady();loadSubjects();
     };
+    d.querySelector('.del').onclick=(e)=>{e.stopPropagation();deleteSubject(s.name);};
     box.appendChild(d);
   });
 }
@@ -297,10 +332,15 @@ async function uploadFile(){
 function needSubject(){if(!current){toast('Select a subject first');return true;}return false;}
 
 async function summarize(){
-  if(needSubject())return; busy('Summarizer agent reading your notes…');
-  try{const r=await api('/api/summarize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subject:current})});
-    out.innerHTML=`<h2>Summary · ${escapeHtml(current)}</h2><div class="q"><div class="md">${mdToHtml(r.summary)}</div></div>`;}
-  catch(e){out.innerHTML=err(e);}
+  if(needSubject())return;
+  out.innerHTML=`<h2>Summary · ${escapeHtml(current)}</h2><div class="q"><div class="md" id="sumbox"><span class="spinner"></span> reading your notes…</div></div>`;
+  try{
+    const res=await fetch('/api/summarize_stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subject:current})});
+    if(!res.ok||!res.body)throw new Error('stream failed');
+    const reader=res.body.getReader(),dec=new TextDecoder();let acc='';const box=$('#sumbox');
+    while(true){const {done,value}=await reader.read();if(done)break;acc+=dec.decode(value,{stream:true});box.innerHTML=mdToHtml(acc);}
+    box.innerHTML=mdToHtml(acc)||'<span class="muted">No summary.</span>';
+  }catch(e){out.innerHTML=err(e);}
 }
 
 async function startQuiz(){
@@ -393,10 +433,26 @@ function maybeFinish(){
   if(done<quiz.length)return;
   const avg=Math.round(sessionScores.reduce((a,b)=>a+(b||0),0)/quiz.length*10)/10;
   api('/api/session_score',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subject:current,kind:quizKind,score:avg})}).catch(()=>{});
-  $('#final').innerHTML=`<div class="q"><h4>🎯 Session score: ${avg}/10</h4>
+  const cheer = avg>=8?' 🎉 Excellent!':avg>=5?' 👍 Keep going.':' 💪 Review and retry.';
+  $('#final').innerHTML=`<div class="q"><h4>🎯 Session score: ${avg}/10${cheer}</h4>
     <div class="scorebar"><i style="width:${avg*10}%"></i></div>
     <p class="muted" style="margin-top:8px">Saved to memory — weak topics will be prioritised next time. <button class="btn ghost mini" onclick="loadProgress()">See progress</button></p></div>`;
   $('#final').scrollIntoView({behavior:'smooth',block:'nearest'});
+  if(avg>=8)confetti();
+}
+
+function confetti(){
+  const c=document.createElement('div');c.id='confetti';document.body.appendChild(c);
+  const colors=['#7c5cff','#22d3ee','#22c55e','#f59e0b','#f43f5e','#a855f7'];
+  for(let i=0;i<90;i++){
+    const d=document.createElement('div');d.className='confdot';
+    d.style.left=Math.random()*100+'vw';
+    d.style.background=colors[i%colors.length];
+    d.style.animationDuration=(2+Math.random()*2)+'s';
+    d.style.animationDelay=(Math.random()*0.4)+'s';
+    c.appendChild(d);
+  }
+  setTimeout(()=>c.remove(),4400);
 }
 
 async function loadProgress(){
@@ -405,9 +461,64 @@ async function loadProgress(){
     const p=await api('/api/progress');
     let html='<h2>Your progress</h2>';
     html+='<div class="q"><h4>Weak topics to focus on</h4>'+(p.weak_topics.length?p.weak_topics.map(t=>`<span class="pill">${escapeHtml(t)}</span>`).join(''):'<span class="muted">None yet — take a quiz.</span>')+'</div>';
-    html+='<div class="q"><h4>Recent sessions</h4>'+(p.scores.length?p.scores.slice().reverse().map(s=>`<div class="row" style="justify-content:space-between"><span>${escapeHtml(s.subject)} · ${escapeHtml(s.kind)}</span><b>${s.score}/10</b></div>`).join(''):'<span class="muted">No quizzes yet.</span>')+'</div>';
+    if(p.scores.length){
+      html+='<div class="q"><h4>Recent scores</h4>'+p.scores.slice().reverse().map(s=>{
+        const pct=Math.max(0,Math.min(100,Math.round((s.score/10)*100)));
+        return `<div class="pbar"><span class="lbl">${escapeHtml(s.subject)} · ${escapeHtml(s.kind)}</span><span class="track"><span class="fill" data-w="${pct}"></span></span><span class="val">${s.score}/10</span></div>`;
+      }).join('')+'</div>';
+    }else{
+      html+='<div class="q"><span class="muted">No quizzes yet — take one to start tracking.</span></div>';
+    }
     out.innerHTML=html;
+    requestAnimationFrame(()=>document.querySelectorAll('.pbar .fill').forEach(f=>{f.style.width=f.dataset.w+'%';}));
   }catch(e){out.innerHTML=err(e);}
+}
+
+/* ---- Ask the Tutor (streaming Q&A grounded in your docs) ---- */
+function askPanel(){
+  if(needSubject())return;
+  out.innerHTML=`<h2>Ask the Tutor · ${escapeHtml(current)}</h2>
+    <div id="chat" class="chat"><div class="bubble tutor">Ask me anything about <b>${escapeHtml(current)}</b> — I'll answer from your uploaded notes.</div></div>
+    <div class="askbar"><input id="askInput" type="text" placeholder="e.g. Explain the difference between…" onkeydown="if(event.key==='Enter')sendAsk()" style="flex:1"><button class="btn" onclick="sendAsk()">Ask</button></div>`;
+  $('#askInput').focus();
+}
+async function sendAsk(){
+  const inp=$('#askInput');const q=(inp.value||'').trim();if(!q)return;inp.value='';
+  const chat=$('#chat');
+  chat.insertAdjacentHTML('beforeend',`<div class="bubble you">${escapeHtml(q)}</div>`);
+  const ans=document.createElement('div');ans.className='bubble tutor';ans.innerHTML='<span class="spinner"></span>';
+  chat.appendChild(ans);chat.scrollTop=chat.scrollHeight;
+  try{
+    const res=await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subject:current,question:q})});
+    if(!res.ok||!res.body)throw new Error('request failed');
+    const reader=res.body.getReader(),dec=new TextDecoder();let acc='';
+    while(true){const {done,value}=await reader.read();if(done)break;acc+=dec.decode(value,{stream:true});ans.innerHTML=mdToHtml(acc);chat.scrollTop=chat.scrollHeight;}
+    ans.innerHTML=mdToHtml(acc)||'<span class="muted">No answer.</span>';
+  }catch(e){ans.innerHTML=`<span class="verdict no">error: ${escapeHtml(e.message)}</span>`;}
+}
+
+/* ---- Flashcards (flip cards from your notes) ---- */
+async function startFlashcards(){
+  if(needSubject())return;
+  busy('Building flashcards from your notes…');
+  try{
+    const r=await api('/api/flashcards',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subject:current})});
+    const cards=r.cards||[];
+    if(!cards.length){out.innerHTML='<p class="muted">No flashcards could be made — upload some notes first.</p>';return;}
+    out.innerHTML=`<h2>Flashcards · ${escapeHtml(current)}</h2><p class="muted">Tap a card to flip it.</p><div class="cards">`+
+      cards.map(c=>`<div class="flip" onclick="this.classList.toggle('flipped')"><div class="flip-inner">
+        <div class="flip-face flip-front"><span class="tag">${escapeHtml(c.topic||'')}</span>${escapeHtml(c.front||'')}</div>
+        <div class="flip-face flip-back"><div class="md">${mdToHtml(c.back||'')}</div></div></div></div>`).join('')+`</div>`;
+  }catch(e){out.innerHTML=err(e);}
+}
+
+/* ---- Delete a subject ---- */
+async function deleteSubject(name){
+  if(!confirm(`Delete subject "${name}" and all its documents?`))return;
+  try{await api('/api/subject/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subject:name})});}
+  catch(e){toast(e.message);return;}
+  if(current===name){current=null;$('#active').textContent='No subject selected';$('#ready').textContent='';out.innerHTML='<p class="muted">Subject deleted.</p>';}
+  toast('Deleted '+name);loadSubjects();
 }
 
 loadSubjects();

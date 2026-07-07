@@ -28,7 +28,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 os.chdir(ROOT)
 
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, Response, jsonify, request, send_from_directory, stream_with_context
 
 from study_tutor.core import (
     load_memory, save_memory, record_weakness, top_weak_topics,
@@ -37,7 +37,7 @@ from study_tutor.tools import (
     create_subject, list_subjects, list_docs, SUBJECTS_DIR,
 )
 from study_tutor.agents import (
-    SummarizerAgent, QuizMasterAgent, EvaluatorAgent,
+    SummarizerAgent, QuizMasterAgent, EvaluatorAgent, TutorAgent, FlashcardAgent,
 )
 from study_tutor import cache as cachelib
 
@@ -47,6 +47,8 @@ HERE = pathlib.Path(__file__).resolve().parent
 summarizer = SummarizerAgent()
 quizmaster = QuizMasterAgent()
 evaluator = EvaluatorAgent()
+tutor = TutorAgent()
+flashcarder = FlashcardAgent()
 
 ALLOWED = {".txt", ".md", ".pdf"}
 
@@ -214,6 +216,78 @@ def api_quiz():
         return jsonify({"questions": questions, "focus": focus})
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
+
+
+@app.post("/api/summarize_stream")
+def api_summarize_stream():
+    """Stream the summary token-by-token; cache the full text when done."""
+    subject = (request.json or {}).get("subject", "").strip()
+    cached = cachelib.load(subject).get("summary")
+
+    @stream_with_context
+    def gen():
+        if cached:
+            yield cached
+            return
+        buf = []
+        for chunk in summarizer.run_stream(subject):
+            buf.append(chunk)
+            yield chunk
+        full = "".join(buf).strip()
+        if full and not full.startswith("No documents"):
+            c = cachelib.load(subject)
+            c["summary"] = full
+            cachelib.save(subject, c)
+
+    return Response(gen(), mimetype="text/plain; charset=utf-8")
+
+
+@app.post("/api/ask")
+def api_ask():
+    """Answer a free-text question about a subject, streamed live."""
+    data = request.json or {}
+    subject = data.get("subject", "").strip()
+    question = data.get("question", "").strip()
+    if not question:
+        return jsonify({"error": "question required"}), 400
+
+    @stream_with_context
+    def gen():
+        yield from tutor.answer_stream(subject, question)
+
+    return Response(gen(), mimetype="text/plain; charset=utf-8")
+
+
+@app.post("/api/flashcards")
+def api_flashcards():
+    """Generate flashcards; cache a pool so repeats are instant."""
+    subject = (request.json or {}).get("subject", "").strip()
+    n = 8
+    c = cachelib.load(subject)
+    pool = c.get("pool", {}).get("flashcards", [])
+    if len(pool) >= n:
+        served, c["pool"]["flashcards"] = pool[:n], pool[n:]
+        cachelib.save(subject, c)
+        return jsonify({"cards": served, "cached": True})
+    try:
+        cards = flashcarder.run(subject, n=n, variety_nonce=secrets.token_hex(3))
+        return jsonify({"cards": cards})
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+@app.post("/api/subject/delete")
+def api_subject_delete():
+    subject = (request.json or {}).get("subject", "").strip()
+    d = SUBJECTS_DIR / subject
+    if d.exists():
+        import shutil
+        shutil.rmtree(d, ignore_errors=True)
+    try:
+        cachelib._path(subject).unlink(missing_ok=True)
+    except Exception:
+        pass
+    return jsonify({"ok": True})
 
 
 @app.post("/api/grade")
