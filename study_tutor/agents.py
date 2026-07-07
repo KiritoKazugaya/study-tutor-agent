@@ -174,6 +174,39 @@ class FlashcardAgent:
         return data if isinstance(data, list) else [data]
 
 
+class PathAgent:
+    """Designs a complete, ordered learning path for any topic."""
+
+    name = "Pathfinder"
+    persona = ("You are an expert curriculum designer. You build clear, motivating "
+               "learning paths that take a beginner all the way to job/exam-ready.")
+
+    def _prompt(self, topic: str, with_resources: bool) -> str:
+        res = (
+            "For EACH module, also recommend 2-3 specific, well-known online resources "
+            "by name (e.g. named courses, official docs, books, or YouTube channels) and "
+            "say where to find them."
+            if with_resources else
+            "Focus on concepts and skills only — do not list external links or resources."
+        )
+        return (
+            f"Design a complete learning path for: '{topic}'.\n"
+            "Take the learner from absolute basics to advanced / job-ready.\n"
+            "Start with a one-line overview and a realistic total time estimate.\n"
+            "Then give ordered MODULES. For each module include:\n"
+            "- a '## Module N: title'\n"
+            "- one line on why it matters\n"
+            "- '- ' bullet subtopics to learn\n"
+            f"{res}\n"
+            "End with a short 'Next steps / how to practise' section.\n"
+            "Use markdown headings (#, ##) and '-' bullets only."
+        )
+
+    def create_stream(self, topic: str, with_resources: bool):
+        yield from generate_stream(self._prompt(topic, with_resources),
+                                   system=self.persona, temperature=0.6)
+
+
 class CoordinatorAgent:
     """Routes a free-text student request to the right specialist."""
 

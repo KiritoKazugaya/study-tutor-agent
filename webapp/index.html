@@ -168,7 +168,7 @@
     <h2>Subjects</h2>
     <div id="subjects"></div>
     <div style="margin:14px 0 8px" class="row">
-      <input id="newSubject" type="text" placeholder="New subject…" style="flex:1;min-width:0" onkeydown="if(event.key==='Enter')createSubject()" />
+      <input id="newSubject" type="text" placeholder="New subject…" autocomplete="off" style="flex:1;min-width:0" onkeydown="if(event.key==='Enter')createSubject()" />
       <button class="btn mini" onclick="createSubject()">Add</button>
     </div>
     <div class="row">
@@ -209,6 +209,7 @@
       <div class="divider"></div>
       <button class="btn ghost" onclick="startFlashcards()">🃏 Flashcards</button>
       <button class="btn ghost" onclick="askPanel()">💬 Ask</button>
+      <button class="btn ghost" onclick="pathPanel()">🧭 Learning Path</button>
       <button class="btn ghost" onclick="loadProgress()">📈 Progress</button>
       <span style="margin-left:auto;display:flex;gap:8px;align-items:center">
         <span id="ready" class="muted" style="font-size:12px"></span>
@@ -519,6 +520,46 @@ async function deleteSubject(name){
   catch(e){toast(e.message);return;}
   if(current===name){current=null;$('#active').textContent='No subject selected';$('#ready').textContent='';out.innerHTML='<p class="muted">Subject deleted.</p>';}
   toast('Deleted '+name);loadSubjects();
+}
+
+/* ---- Learning Path Creator (topic -> path -> PDF) ---- */
+let lastPath={topic:'',md:''};
+function pathPanel(){
+  out.innerHTML=`<h2>🧭 Learning Path Creator</h2>
+    <p class="muted">Enter any topic — get a structured path from basics to advanced. No subject needed.</p>
+    <div class="askbar"><input id="pathTopic" type="text" autocomplete="off" placeholder="e.g. Machine Learning, React, Guitar, Data Structures…" style="flex:1" onkeydown="if(event.key==='Enter')createPath(true)"></div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" onclick="createPath(true)">🌐 With online resources</button>
+      <button class="btn ghost" onclick="createPath(false)">📋 Concept path only</button>
+    </div>
+    <div id="pathOut" style="margin-top:16px"></div>`;
+  $('#pathTopic').focus();
+}
+async function createPath(withResources){
+  const topic=($('#pathTopic').value||'').trim(); if(!topic){toast('Enter a topic first');return;}
+  const box=$('#pathOut');
+  box.innerHTML=`<div class="q"><div class="md" id="pathBox"><span class="spinner"></span> designing your path…</div></div>`;
+  try{
+    const res=await fetch('/api/path',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic,resources:withResources})});
+    if(!res.ok||!res.body)throw new Error('request failed');
+    const reader=res.body.getReader(),dec=new TextDecoder();let acc='';const pb=$('#pathBox');
+    while(true){const {done,value}=await reader.read();if(done)break;acc+=dec.decode(value,{stream:true});pb.innerHTML=mdToHtml(acc);}
+    pb.innerHTML=mdToHtml(acc)||'<span class="muted">No path generated.</span>';
+    lastPath={topic,md:acc};
+    box.insertAdjacentHTML('beforeend',`<div class="row" style="margin-top:12px"><button class="btn" onclick="downloadPath()">⬇️ Download as PDF</button><span class="muted" style="font-size:12px">${withResources?'Includes recommended online resources':'Concept-only path'}</span></div>`);
+  }catch(e){box.innerHTML=err(e);}
+}
+async function downloadPath(){
+  if(!lastPath.md){toast('Create a path first');return;}
+  try{
+    const res=await fetch('/api/path/pdf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(lastPath)});
+    if(!res.ok)throw new Error('PDF generation failed');
+    const blob=await res.blob();const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;
+    a.download=(lastPath.topic.replace(/[^a-z0-9]+/gi,'_').replace(/^_|_$/g,'')||'learning_path')+'.pdf';
+    document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+    toast('Downloaded PDF ✓');
+  }catch(e){toast(e.message);}
 }
 
 loadSubjects();
