@@ -2,7 +2,8 @@
 
 **Track:** Agents for Good (Education)
 **Team:** <your name / team, up to 4>
-**Code:** <paste your public GitHub / Kaggle Notebook link>
+**Code:** https://github.com/KiritoKazugaya/study-tutor-agent
+**Live app:** https://study-tutor-g8h1.onrender.com
 **Video:** <paste your 2–3 min demo link>
 
 ---
